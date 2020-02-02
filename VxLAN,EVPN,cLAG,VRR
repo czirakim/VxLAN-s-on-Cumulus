@@ -1,0 +1,139 @@
+net commands
+============
+
+switch1# net add clag peer sys-mac 44:38:39:FF:01:01 interface swp5-6 primary backup-ip 10.0.0.2
+switch1# net add vlan 100-200
+switch1# net add clag port bond bond1 interface swp1 clag-id 1
+switch1# net add bond bond1 bridge trunk vlans 100,200
+
+switch1# net add vlan 100 ip address 192.168.1.252/24
+switch1# net add vlan 100 ip address-virtual 00:00:5e:00:01:00 192.168.1.254/24
+
+
+switch1# net pending
+switch1# net commit
+
+switch2# net add clag peer sys-mac 44:38:39:FF:01:01 interface swp5-6 secondary backup-ip 10.0.0.1                                                                                                                                                                                                                                                                 backup-ip 10.0.0.1
+switch2# net add vlan 100-200
+switch2# net add clag port bond bond1 interface swp1 clag-id 1
+switch2# net add bond bond1 bridge trunk vlans 100,200
+
+switch2# net add vlan 100 ip address 192.168.1.253/24
+switch2# net add vlan 100 ip address-virtual 00:00:5e:00:01:00 192.168.1.254/24
+
+
+switch2# net pending
+switch2# net commit
+
+
+switch3# net add bridge bridge ports swp5-6
+switch3# net add bridge bridge vids 100,200
+switch3# net add bridge bridge pvid 1
+switch3# net add interface swp5-6 bridge access 100
+
+
+switch3# net add bond bond1 bond slaves swp1-2
+switch3# net add bond bond1 bridge trunk vlans 100,200
+switch3# net pending
+switch3# net commit
+
+
+switch5# net add bridge bridge ports swp5-6
+switch5# net add bridge bridge vids 100,200
+switch5# net add bridge bridge pvid 1
+switch5# net add interface swp5-6 bridge access 100
+switch5# net add vlan 100 ip address 192.168.1.251/24
+
+Verification
+============
+switch1# net show interface
+switch1# net show clag
+clagctl -v
+
+############# BGP routing ##################
+
+/etc/frr/daemons
+
+sudo systemctl enable frr.service
+sudo systemctl start frr.service
+
+### EVPN Configuration
+
+switch1# net add loopback lo ip address 10.1.1.1/32
+switch1# net add loopback lo clag vxlan-anycast-ip 10.10.10.10
+
+switch1# net add bgp autonomous-system 65001
+switch1# net add bgp neighbor swp3 interface remote-as external
+switch1# net add bgp l2vpn evpn neighbor swp3 activate
+switch1# net add bgp l2vpn evpn advertise-all-vni
+switch1# net add bgp network 10.1.1.1/32
+switch1# net add bgp network 10.10.10.10/32
+switch1# net pending
+switch1# net commit
+
+
+switch2# net add loopback lo ip address 10.1.1.2/32
+switch2# net add loopback lo clag vxlan-anycast-ip 10.10.10.10
+
+switch2# net add bgp autonomous-system 65002
+switch2# net add bgp neighbor swp3 interface remote-as external
+switch2# net add bgp l2vpn evpn neighbor swp3 activate
+switch2# net add bgp l2vpn evpn advertise-all-vni
+switch2# net add bgp network 10.1.1.2/32
+switch2# net add bgp network 10.10.10.10/32
+switch2# net pending
+switch2# net commit
+
+switch4# net add loopback lo ip address 10.1.1.4/32
+
+switch4# net add bgp autonomous-system 65004
+switch4# net add bgp neighbor swp1-2 interface remote-as external
+switch4# net add bgp l2vpn evpn neighbor swp1-2 activate
+switch4# net add bgp network 10.1.1.4/32
+switch4# net pending
+switch4# net commit
+
+switch5# net add loopback lo ip address 10.1.1.5/32
+
+switch5# net add bgp autonomous-system 65005
+switch5# net add bgp neighbor swp1 interface remote-as external
+switch5# net add bgp l2vpn evpn neighbor swp1 activate
+switch5# net add bgp l2vpn evpn advertise-all-vni
+switch5# net add bgp network 10.1.1.5/32
+switch5# net pending
+switch5# net commit
+
+#### VxLAN Configuration
+
+switch1# net add vxlan vni100 bridge access 100
+switch1# net add vxlan vni100 vxlan id 100
+switch1# net add vxlan vni100 bridge learning off
+switch1# net add vxlan vni100 stp bpduguard
+switch1# net add vxlan vni100 stp portbpdufilter
+switch1# net add vxlan vni100 vxlan local-tunnelip 10.1.1.1
+switch1# net add vxlan vni100 bridge arp-nd-suppress on
+
+
+switch2# net add vxlan vni100 bridge access 100
+switch2# net add vxlan vni100 vxlan id 100
+switch2# net add vxlan vni100 bridge learning off
+switch2# net add vxlan vni100 stp bpduguard
+switch2# net add vxlan vni100 stp portbpdufilter
+switch2# net add vxlan vni100 vxlan local-tunnelip 10.1.1.2
+switch2# net add vxlan vni100 bridge arp-nd-suppress on
+
+switch5# net add vxlan vni100 bridge access 100
+switch5# net add vxlan vni100 vxlan id 100
+switch5# net add vxlan vni100 bridge learning off
+switch5# net add vxlan vni100 stp bpduguard
+switch5# net add vxlan vni100 stp portbpdufilter
+switch5# net add vxlan vni100 vxlan local-tunnelip 10.1.1.5
+switch5# net add vxlan vni100 bridge arp-nd-suppress on
+
+
+Verification
+============
+net show route ipv4
+net show evpn vni
+net show bgp l2vpn evpn vni 100
+net show bgp l2vpn evpn route
